@@ -1,0 +1,49 @@
+# Nextflow
+.nextflow*
+work/
+results/
+.nextflow.log*
+
+# Sequencing data
+*.fastq.gz
+*.fastq
+*.fq.gz
+*.bam
+*.bam.bai
+*.sam
+*.vcf
+*.vcf.gz
+*.bcf
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+env/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Output directories
+*_output_*/
+project_files/
+
+# Environment
+.env
+*.log
