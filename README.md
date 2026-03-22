@@ -30,24 +30,54 @@ Whether you're tracking SARS-CoV-2 variants, surveilling RSV and Influenza seaso
 ## Architecture
 
 ```
- ┌──────────────────────────────────────────────────────────────────────┐
- │                        PathogenPulse Pipeline                       │
- ├──────────────────────────────────────────────────────────────────────┤
- │                                                                      │
- │   ┌────────────┐    ┌────────────┐    ┌──────────────┐    ┌───────┐ │
- │   │  DOWNLOAD   │───>│ INPUT PREP │───>│  VIRALRECON  │───>│  S3   │ │
- │   │             │    │            │    │              │    │UPLOAD │ │
- │   │ BaseSpace/  │    │ Generate   │    │ nf-core/     │    │       │ │
- │   │ Local FASTQ │    │ sample CSV │    │ viralrecon   │    │ aws   │ │
- │   │             │    │ files      │    │ v2.6.0       │    │ s3 cp │ │
- │   │ download.py │    │inputFile.py│    │runViralrecon │    │result │ │
- │   │             │    │MergeInput  │    │   .py        │    │2S3.py │ │
- │   └────────────┘    └────────────┘    └──────────────┘    └───────┘ │
- │                                                                      │
- │   Protocols:  amplicon | metagenomic                                 │
- │   Callers:    iVar                                                   │
- │   Profiles:   Docker                                                 │
- └──────────────────────────────────────────────────────────────────────┘
+╔══════════════════════════════════════════════════════════════════════════════════════╗
+║                          PathogenPulse Pipeline Architecture                        ║
+╠══════════════════════════════════════════════════════════════════════════════════════╣
+║                                                                                      ║
+║  ┌─────────────────────────────────────────────────────────────────────────────────┐ ║
+║  │                        DATA ACQUISITION LAYER                                   │ ║
+║  │                                                                                 │ ║
+║  │  Illumina BaseSpace ──→ download.py ──→ Auto-sort: fastqs/ | water_fastqs/     │ ║
+║  │  Local FASTQ files  ──→ inputFile.py ──→ Generate sample CSVs                  │ ║
+║  │  Undetermined reads ──→ MergeInput.py ──→ Multi-lane merge (strip L001/L002)   │ ║
+║  └───────────────────────────────┬─────────────────────────────────────────────────┘ ║
+║                                  ↓                                                   ║
+║  ┌───────────────────────────────────────────────────────────────────────────────┐   ║
+║  │                     PROTOCOL SELECTION & DISPATCH                             │   ║
+║  │                                                                               │   ║
+║  │          ┌──────────────────────┐     ┌──────────────────────┐               │   ║
+║  │          │   AMPLICON PROTOCOL  │     │ METAGENOMIC PROTOCOL │               │   ║
+║  │          │                      │     │                      │               │   ║
+║  │          │  ● Swift v3 primers  │     │  ● No primer trimming│               │   ║
+║  │          │  ● iVar trimming     │     │  ● Kraken2 classif.  │               │   ║
+║  │          │  ● COVID-19 primary  │     │  ● Multi-pathogen    │               │   ║
+║  │          └──────────┬───────────┘     └──────────┬───────────┘               │   ║
+║  │                     └────────────┬───────────────┘                            │   ║
+║  └──────────────────────────────────┼────────────────────────────────────────────┘   ║
+║                                     ↓                                                ║
+║  ┌──────────────────────────────────────────────────────────────────────────────┐    ║
+║  │                    nf-core/viralrecon v2.6.0 ENGINE                          │    ║
+║  │                                                                              │    ║
+║  │  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐            │    ║
+║  │  │  COVID-19  │  │    RSV     │  │ Influenza  │  │    HRTV    │            │    ║
+║  │  │ MN908947.3 │  │ Multiple   │  │  A & B     │  │ MZ617374-6 │            │    ║
+║  │  │ Pangolin   │  │ segments   │  │ CY121686+  │  │ 3 segments │            │    ║
+║  │  │ Nextclade  │  │            │  │            │  │            │            │    ║
+║  │  └────────────┘  └────────────┘  └────────────┘  └────────────┘            │    ║
+║  │                                                                              │    ║
+║  │  Variant Caller: iVar ──→ Consensus ──→ QC (MultiQC)                        │    ║
+║  │  Resources: 94 CPUs | 370 GB RAM | Docker containers                        │    ║
+║  └────────────────────────────┬─────────────────────────────────────────────────┘    ║
+║                               ↓                                                      ║
+║  ┌────────────────┐  ┌────────────────┐  ┌──────────────────────────────────────┐   ║
+║  │ Kraken2        │  │ Coverage       │  │         S3 Upload                    │   ║
+║  │ Classification │  │ Analysis       │  │                                      │   ║
+║  │                │  │                │  │  aws s3 cp --recursive               │   ║
+║  │ ● All-DB       │  │ ● Per-amplicon │  │  s3://viralrecon/{project}/{run}/   │   ║
+║  │ ● Paired-end   │  │ ● samtools     │  │  Organized by project hierarchy     │   ║
+║  │ ● Report + Out │  │ ● bedcov       │  │                                      │   ║
+║  └────────────────┘  └────────────────┘  └──────────────────────────────────────┘   ║
+╚══════════════════════════════════════════════════════════════════════════════════════╝
 ```
 
 ---
